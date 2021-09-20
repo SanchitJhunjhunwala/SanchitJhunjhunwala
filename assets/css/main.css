@@ -99,7 +99,7 @@ input, select, textarea {
 	}
 
 	body {
-		background: #242943;
+		background: #000000;
 	}
 
 		body.is-preload *, body.is-preload *:before, body.is-preload *:after {
@@ -3380,14 +3380,14 @@ input, select, textarea {
 		-webkit-align-items: center;
 		-ms-align-items: center;
 		align-items: center;
-		background-image: url("../../images/banner.jpg");
+		background-image: url("../../images/sj1.jpeg");
 		display: -moz-flex;
 		display: -webkit-flex;
 		display: -ms-flex;
 		display: flex;
 		padding: 6em 0 2em 0 ;
 		background-attachment: fixed;
-		background-position: center;
+		background-position: top;
 		background-repeat: no-repeat;
 		background-size: cover;
 		border-bottom: 0 !important;
@@ -3410,12 +3410,12 @@ input, select, textarea {
 			-ms-transition-delay: 0.75s;
 			transition-delay: 0.75s;
 			pointer-events: none;
-			background-color: #242943;
+			background-color: #000000;
 			content: '';
 			display: block;
 			height: 100%;
 			left: 0;
-			opacity: 0.85;
+			opacity: 0.5;
 			position: absolute;
 			top: 0;
 			width: 100%;
@@ -3449,7 +3449,7 @@ input, select, textarea {
 				}
 
 					#banner > .inner header > :first-child:after {
-						max-width: 100%;
+						max-width: 40%;
 					}
 
 			#banner > .inner .content {
@@ -3515,7 +3515,7 @@ input, select, textarea {
 		}
 
 		body.is-preload #banner:after {
-			opacity: 1.0;
+			opacity: 0.0;
 		}
 
 		body.is-preload #banner > .inner {
