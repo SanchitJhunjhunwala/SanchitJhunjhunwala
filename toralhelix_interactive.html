@@ -2,7 +2,7 @@
 <html>
 <head>
 <meta charset="UTF-8">
-<title>Helix Lab v13 (Corrected Physics + Geometry)</title>
+<title>Helix Lab v14 (Clean Stable)</title>
 
 <style>
 body { margin:0; background:black; color:white; font-family:sans-serif;}
@@ -93,130 +93,83 @@ input:checked + .slider:before {
 
 <script>
 
+/* ================= SETUP ================= */
+
 const scene = new THREE.Scene();
 const camera = new THREE.PerspectiveCamera(60, window.innerWidth/window.innerHeight, 0.1, 5000);
+
 const renderer = new THREE.WebGLRenderer();
 renderer.setSize(window.innerWidth, window.innerHeight);
 renderer.setClearColor(0x000000);
+renderer.domElement.style.touchAction = "none";
 document.body.appendChild(renderer.domElement);
 
-/* Camera */
+/* ================= CAMERA ================= */
+
 let azim=0, elev=0.5, radius=400;
 let dragging=false, px=0, py=0;
 
-renderer.domElement.onmousedown=e=>{dragging=true;px=e.clientX;py=e.clientY;}
-renderer.domElement.onmouseup=()=>dragging=false;
-renderer.domElement.onmousemove=e=>{
+/* Mouse */
+renderer.domElement.onmousedown = e=>{
+ dragging=true; px=e.clientX; py=e.clientY;
+};
+renderer.domElement.onmouseup = ()=>dragging=false;
+renderer.domElement.onmouseleave = ()=>dragging=false;
+
+renderer.domElement.onmousemove = e=>{
  if(!dragging) return;
  azim += (e.clientX-px)*0.005;
  elev += (e.clientY-py)*0.005;
- elev=Math.max(-1.5,Math.min(1.5,elev));
+ elev = Math.max(-1.5, Math.min(1.5, elev));
  px=e.clientX; py=e.clientY;
 };
 
-renderer.domElement.onwheel=e=>{
- radius+=e.deltaY*0.3;
- radius=Math.max(50,Math.min(2000,radius));
+renderer.domElement.onwheel = e=>{
+ radius += e.deltaY*0.3;
+ radius = Math.max(50, Math.min(2000, radius));
 };
 
- /* ================= CAMERA INTERACTION (MOUSE + TOUCH) ================= */
+/* Touch */
+let touchMode=null, prevDist=0;
 
-/* Prevent browser gestures interfering */
-renderer.domElement.style.touchAction = "none";
+renderer.domElement.addEventListener("touchstart", e=>{
+ if(e.touches.length===1){
+  touchMode="rotate";
+  px=e.touches[0].clientX;
+  py=e.touches[0].clientY;
+ }
+ if(e.touches.length===2){
+  touchMode="zoom";
+  let dx=e.touches[0].clientX-e.touches[1].clientX;
+  let dy=e.touches[0].clientY-e.touches[1].clientY;
+  prevDist=Math.sqrt(dx*dx+dy*dy);
+ }
+}, {passive:false});
 
-/* ----------- Mouse Controls ----------- */
-let dragging = false;
-let px = 0, py = 0;
+renderer.domElement.addEventListener("touchmove", e=>{
 
-renderer.domElement.onmousedown = e => {
-    dragging = true;
-    px = e.clientX;
-    py = e.clientY;
-};
+ if(touchMode==="rotate" && e.touches.length===1){
+  let x=e.touches[0].clientX;
+  let y=e.touches[0].clientY;
+  azim += (x-px)*0.005;
+  elev += (y-py)*0.005;
+  elev = Math.max(-1.5, Math.min(1.5, elev));
+  px=x; py=y;
+ }
 
-renderer.domElement.onmouseup = () => dragging = false;
-renderer.domElement.onmouseleave = () => dragging = false;
+ if(touchMode==="zoom" && e.touches.length===2){
+  let dx=e.touches[0].clientX-e.touches[1].clientX;
+  let dy=e.touches[0].clientY-e.touches[1].clientY;
+  let dist=Math.sqrt(dx*dx+dy*dy);
+  radius += (prevDist-dist)*0.5;
+  radius = Math.max(50, Math.min(2000, radius));
+  prevDist=dist;
+ }
 
-renderer.domElement.onmousemove = e => {
-    if (!dragging) return;
+ e.preventDefault();
+}, {passive:false});
 
-    azim += (e.clientX - px) * 0.005;
-    elev += (e.clientY - py) * 0.005;
-
-    elev = Math.max(-1.5, Math.min(1.5, elev));
-
-    px = e.clientX;
-    py = e.clientY;
-};
-
-/* Zoom (mouse wheel) */
-renderer.domElement.onwheel = e => {
-    radius += e.deltaY * 0.3;
-    radius = Math.max(50, Math.min(2000, radius));
-};
-
-
-/* ----------- Touch Controls ----------- */
-let touchMode = null;
-let prevDist = 0;
-
-renderer.domElement.addEventListener("touchstart", e => {
-
-    if (e.touches.length === 1) {
-        touchMode = "rotate";
-        px = e.touches[0].clientX;
-        py = e.touches[0].clientY;
-    }
-
-    if (e.touches.length === 2) {
-        touchMode = "zoom";
-
-        let dx = e.touches[0].clientX - e.touches[1].clientX;
-        let dy = e.touches[0].clientY - e.touches[1].clientY;
-        prevDist = Math.sqrt(dx * dx + dy * dy);
-    }
-
-}, { passive: false });
-
-
-renderer.domElement.addEventListener("touchmove", e => {
-
-    if (touchMode === "rotate" && e.touches.length === 1) {
-
-        let x = e.touches[0].clientX;
-        let y = e.touches[0].clientY;
-
-        azim += (x - px) * 0.005;
-        elev += (y - py) * 0.005;
-
-        elev = Math.max(-1.5, Math.min(1.5, elev));
-
-        px = x;
-        py = y;
-    }
-
-    if (touchMode === "zoom" && e.touches.length === 2) {
-
-        let dx = e.touches[0].clientX - e.touches[1].clientX;
-        let dy = e.touches[0].clientY - e.touches[1].clientY;
-        let dist = Math.sqrt(dx * dx + dy * dy);
-
-        let delta = prevDist - dist;
-
-        radius += delta * 0.5;
-        radius = Math.max(50, Math.min(2000, radius));
-
-        prevDist = dist;
-    }
-
-    e.preventDefault();
-
-}, { passive: false });
-
-
-renderer.domElement.addEventListener("touchend", () => {
-    touchMode = null;
-});
+renderer.domElement.addEventListener("touchend", ()=>touchMode=null);
 
 function updateCamera(){
  camera.position.set(
@@ -227,7 +180,8 @@ function updateCamera(){
  camera.lookAt(0,0,0);
 }
 
-/* Geometry */
+/* ================= GEOMETRY ================= */
+
 function generate(){
  let pts=[];
  let steps=800;
@@ -254,7 +208,8 @@ function generate(){
  return pts;
 }
 
-/* State */
+/* ================= STATE ================= */
+
 let base=generate();
 let pos=base.map(p=>p.clone());
 let vel=base.map(()=>new THREE.Vector3());
@@ -267,7 +222,8 @@ scene.add(obj);
 let lineObj=null;
 let t=0;
 
-/* Reset */
+/* ================= RESET ================= */
+
 function resetSim(){
  base=generate();
  pos=base.map(p=>p.clone());
@@ -275,7 +231,8 @@ function resetSim(){
  t=0;
 }
 
-/* Geometry update */
+/* ================= GEOMETRY UPDATE ================= */
+
 function updateGeom(){
  base=generate();
  for(let i=0;i<pos.length;i++){
@@ -287,7 +244,8 @@ function updateGeom(){
  document.getElementById(id).oninput=updateGeom;
 });
 
-/* Physics */
+/* ================= PHYSICS ================= */
+
 function step(){
 
  let dt=0.03;
@@ -328,7 +286,8 @@ function step(){
  }
 }
 
-/* Animate */
+/* ================= ANIMATE ================= */
+
 function animate(){
  requestAnimationFrame(animate);
 
