@@ -119,6 +119,105 @@ renderer.domElement.onwheel=e=>{
  radius=Math.max(50,Math.min(2000,radius));
 };
 
+ /* ================= CAMERA INTERACTION (MOUSE + TOUCH) ================= */
+
+/* Prevent browser gestures interfering */
+renderer.domElement.style.touchAction = "none";
+
+/* ----------- Mouse Controls ----------- */
+let dragging = false;
+let px = 0, py = 0;
+
+renderer.domElement.onmousedown = e => {
+    dragging = true;
+    px = e.clientX;
+    py = e.clientY;
+};
+
+renderer.domElement.onmouseup = () => dragging = false;
+renderer.domElement.onmouseleave = () => dragging = false;
+
+renderer.domElement.onmousemove = e => {
+    if (!dragging) return;
+
+    azim += (e.clientX - px) * 0.005;
+    elev += (e.clientY - py) * 0.005;
+
+    elev = Math.max(-1.5, Math.min(1.5, elev));
+
+    px = e.clientX;
+    py = e.clientY;
+};
+
+/* Zoom (mouse wheel) */
+renderer.domElement.onwheel = e => {
+    radius += e.deltaY * 0.3;
+    radius = Math.max(50, Math.min(2000, radius));
+};
+
+
+/* ----------- Touch Controls ----------- */
+let touchMode = null;
+let prevDist = 0;
+
+renderer.domElement.addEventListener("touchstart", e => {
+
+    if (e.touches.length === 1) {
+        touchMode = "rotate";
+        px = e.touches[0].clientX;
+        py = e.touches[0].clientY;
+    }
+
+    if (e.touches.length === 2) {
+        touchMode = "zoom";
+
+        let dx = e.touches[0].clientX - e.touches[1].clientX;
+        let dy = e.touches[0].clientY - e.touches[1].clientY;
+        prevDist = Math.sqrt(dx * dx + dy * dy);
+    }
+
+}, { passive: false });
+
+
+renderer.domElement.addEventListener("touchmove", e => {
+
+    if (touchMode === "rotate" && e.touches.length === 1) {
+
+        let x = e.touches[0].clientX;
+        let y = e.touches[0].clientY;
+
+        azim += (x - px) * 0.005;
+        elev += (y - py) * 0.005;
+
+        elev = Math.max(-1.5, Math.min(1.5, elev));
+
+        px = x;
+        py = y;
+    }
+
+    if (touchMode === "zoom" && e.touches.length === 2) {
+
+        let dx = e.touches[0].clientX - e.touches[1].clientX;
+        let dy = e.touches[0].clientY - e.touches[1].clientY;
+        let dist = Math.sqrt(dx * dx + dy * dy);
+
+        let delta = prevDist - dist;
+
+        radius += delta * 0.5;
+        radius = Math.max(50, Math.min(2000, radius));
+
+        prevDist = dist;
+    }
+
+    e.preventDefault();
+
+}, { passive: false });
+
+
+renderer.domElement.addEventListener("touchend", () => {
+    touchMode = null;
+});
+
 function updateCamera(){
  camera.position.set(
   radius*Math.cos(elev)*Math.sin(azim),
