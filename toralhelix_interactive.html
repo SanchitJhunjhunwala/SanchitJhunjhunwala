@@ -2,7 +2,7 @@
 <html>
 <head>
 <meta charset="UTF-8">
-<title>Helix Lab v15 (Touch Geometry Controls)</title>
+<title>Helix Lab v16 (Hold Controls)</title>
 
 <style>
 body { margin:0; background:black; color:white; font-family:sans-serif;}
@@ -50,21 +50,21 @@ input:checked + .slider:before {
  transform:translateX(20px);
 }
 
-/* Buttons */
+/* Buttons (touch optimized) */
 button {
- font-size:16px;
+ font-size:18px;
  padding:10px 14px;
  border-radius:10px;
  border:none;
  background:#444;
  color:white;
- min_width:40px;
+ min-width:40px;
 }
 button:active { background:#777; }
 
 .inputRow {
  display:flex;
- gap:5px;
+ gap:6px;
  align-items:center;
 }
 </style>
@@ -72,7 +72,6 @@ button:active { background:#777; }
 
 <body>
 
-<!-- ================= UI ================= -->
 <div id="ui">
 <b>Dynamics</b>
 
@@ -98,7 +97,6 @@ button:active { background:#777; }
 <button onclick="resetSim()">Reset</button>
 </div>
 
-<!-- ================= GEOMETRY ================= -->
 <div id="geom">
 <b>Geometry</b>
 
@@ -106,25 +104,31 @@ button:active { background:#777; }
 
 <label>a
   <div class="inputRow">
-    <button onclick="stepInput('a', -1)">−</button>
+    <button onmousedown="startStep('a', -1)" onmouseup="stopStep()" onmouseleave="stopStep()"
+            ontouchstart="startStep('a', -1)" ontouchend="stopStep()">−</button>
     <input type="number" id="a" value="50">
-    <button onclick="stepInput('a', 1)">+</button>
+    <button onmousedown="startStep('a', 1)" onmouseup="stopStep()" onmouseleave="stopStep()"
+            ontouchstart="startStep('a', 1)" ontouchend="stopStep()">+</button>
   </div>
 </label>
 
 <label>b
   <div class="inputRow">
-    <button onclick="stepInput('b', -1)">−</button>
+    <button onmousedown="startStep('b', -1)" onmouseup="stopStep()" onmouseleave="stopStep()"
+            ontouchstart="startStep('b', -1)" ontouchend="stopStep()">−</button>
     <input type="number" id="b" value="20">
-    <button onclick="stepInput('b', 1)">+</button>
+    <button onmousedown="startStep('b', 1)" onmouseup="stopStep()" onmouseleave="stopStep()"
+            ontouchstart="startStep('b', 1)" ontouchend="stopStep()">+</button>
   </div>
 </label>
 
 <label>R
   <div class="inputRow">
-    <button onclick="stepInput('R', -2)">−</button>
+    <button onmousedown="startStep('R', -2)" onmouseup="stopStep()" onmouseleave="stopStep()"
+            ontouchstart="startStep('R', -2)" ontouchend="stopStep()">−</button>
     <input type="number" id="R" value="100">
-    <button onclick="stepInput('R', 2)">+</button>
+    <button onmousedown="startStep('R', 2)" onmouseup="stopStep()" onmouseleave="stopStep()"
+            ontouchstart="startStep('R', 2)" ontouchend="stopStep()">+</button>
   </div>
 </label>
 
@@ -135,32 +139,48 @@ button:active { background:#777; }
 
 <script>
 
-/* ================= SETUP ================= */
+/* ===== HOLD CONTROL ===== */
+let holdInterval = null;
 
+function startStep(id, delta){
+    stopStep();
+    function step(){
+        let el = document.getElementById(id);
+        el.value = parseFloat(el.value) + delta;
+        updateGeom();
+    }
+    step();
+    holdInterval = setInterval(step, 100);
+}
+
+function stopStep(){
+    if(holdInterval){
+        clearInterval(holdInterval);
+        holdInterval = null;
+    }
+}
+
+/* ===== SETUP ===== */
 const scene = new THREE.Scene();
 const camera = new THREE.PerspectiveCamera(60, window.innerWidth/window.innerHeight, 0.1, 5000);
-
 const renderer = new THREE.WebGLRenderer();
 renderer.setSize(window.innerWidth, window.innerHeight);
 renderer.setClearColor(0x000000);
 renderer.domElement.style.touchAction = "none";
 document.body.appendChild(renderer.domElement);
 
-/* ================= CAMERA ================= */
-
+/* ===== CAMERA ===== */
 let azim=0, elev=0.5, radius=400;
 let dragging=false, px=0, py=0;
 
-renderer.domElement.onmousedown=e=>{
- dragging=true; px=e.clientX; py=e.clientY;
-};
+renderer.domElement.onmousedown=e=>{dragging=true;px=e.clientX;py=e.clientY;}
 renderer.domElement.onmouseup=()=>dragging=false;
 renderer.domElement.onmouseleave=()=>dragging=false;
 
 renderer.domElement.onmousemove=e=>{
  if(!dragging) return;
- azim += (e.clientX-px)*0.005;
- elev += (e.clientY-py)*0.005;
+ azim+=(e.clientX-px)*0.005;
+ elev+=(e.clientY-py)*0.005;
  elev=Math.max(-1.5,Math.min(1.5,elev));
  px=e.clientX; py=e.clientY;
 };
@@ -191,8 +211,8 @@ renderer.domElement.addEventListener("touchmove", e=>{
  if(touchMode==="rotate" && e.touches.length===1){
   let x=e.touches[0].clientX;
   let y=e.touches[0].clientY;
-  azim += (x-px)*0.005;
-  elev += (y-py)*0.005;
+  azim+=(x-px)*0.005;
+  elev+=(y-py)*0.005;
   elev=Math.max(-1.5,Math.min(1.5,elev));
   px=x; py=y;
  }
@@ -200,7 +220,7 @@ renderer.domElement.addEventListener("touchmove", e=>{
   let dx=e.touches[0].clientX-e.touches[1].clientX;
   let dy=e.touches[0].clientY-e.touches[1].clientY;
   let dist=Math.sqrt(dx*dx+dy*dy);
-  radius += (prevDist-dist)*0.5;
+  radius+=(prevDist-dist)*0.5;
   radius=Math.max(50,Math.min(2000,radius));
   prevDist=dist;
  }
@@ -218,11 +238,9 @@ function updateCamera(){
  camera.lookAt(0,0,0);
 }
 
-/* ================= GEOMETRY ================= */
-
+/* ===== GEOMETRY ===== */
 function generate(){
  let pts=[], steps=800;
-
  let turnsVal=+turns.value;
  let aVal=+a.value;
  let bVal=+b.value;
@@ -245,30 +263,18 @@ function generate(){
  return pts;
 }
 
-/* ================= STATE ================= */
-
+/* ===== STATE ===== */
 let base=generate();
 let pos=base.map(p=>p.clone());
 let vel=base.map(()=>new THREE.Vector3());
 
 let geo=new THREE.BufferGeometry().setFromPoints(pos);
 let mat=new THREE.PointsMaterial({vertexColors:true,size:3});
-let obj=new THREE.Points(geo,mat);
-scene.add(obj);
+scene.add(new THREE.Points(geo,mat));
 
-let lineObj=null;
-let t=0;
+let lineObj=null, t=0;
 
-/* ================= HELPERS ================= */
-
-function stepInput(id, delta){
- let el=document.getElementById(id);
- el.value=parseFloat(el.value)+delta;
- updateGeom();
-}
-
-/* ================= RESET ================= */
-
+/* ===== RESET ===== */
 function resetSim(){
  base=generate();
  pos=base.map(p=>p.clone());
@@ -276,8 +282,7 @@ function resetSim(){
  t=0;
 }
 
-/* ================= GEOMETRY UPDATE ================= */
-
+/* ===== GEOMETRY UPDATE ===== */
 function updateGeom(){
  base=generate();
  for(let i=0;i<pos.length;i++){
@@ -289,8 +294,7 @@ function updateGeom(){
  document.getElementById(id).oninput=updateGeom;
 });
 
-/* ================= PHYSICS ================= */
-
+/* ===== PHYSICS ===== */
 function step(){
 
  let dt=0.03;
@@ -331,8 +335,7 @@ function step(){
  }
 }
 
-/* ================= ANIMATE ================= */
-
+/* ===== ANIMATE ===== */
 function animate(){
  requestAnimationFrame(animate);
 
