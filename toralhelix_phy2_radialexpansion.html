@@ -1,0 +1,251 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<title>Helix Lab v13 (Stable Extended)</title>
+
+<style>
+body { margin:0; background:black; color:white; font-family:sans-serif;}
+
+#ui, #geom {
+ position:absolute;
+ background:rgba(0,0,0,0.75);
+ padding:10px;
+ border-radius:10px;
+}
+
+#ui { top:10px; left:10px;}
+#geom { bottom:10px; left:10px;}
+
+label { display:block; margin-top:6px;}
+
+/* Toggle switch */
+.switch {
+ position: relative;
+ display: inline-block;
+ width: 40px;
+ height: 20px;
+}
+.switch input { display:none; }
+.slider {
+ position:absolute;
+ cursor:pointer;
+ top:0; left:0; right:0; bottom:0;
+ background:#ccc;
+ border-radius:20px;
+}
+.slider:before {
+ position:absolute;
+ content:"";
+ height:16px; width:16px;
+ left:2px; bottom:2px;
+ background:white;
+ border-radius:50%;
+ transition:0.2s;
+}
+input:checked + .slider {
+ background:#4caf50;
+}
+input:checked + .slider:before {
+ transform:translateX(20px);
+}
+</style>
+</head>
+
+<body>
+
+<!-- ================= UI ================= -->
+<div id="ui">
+<b>Dynamics</b>
+
+<label>Wave k <input type="range" id="k" min="0" max="15" step="0.1" value="2"></label>
+<label>Current <input type="range" id="Iamp" min="0" max="5" step="0.1" value="1"></label>
+
+<label>Mass <input type="range" id="mass" min="0.1" max="5" step="0.1" value="1"></label>
+<label>Base stiffness <input type="range" id="ks" min="0" max="5" step="0.1" value="1"></label>
+<label>Neighbor stiffness <input type="range" id="kn" min="0" max="5" step="0.1" value="2"></label>
+<label>Damping <input type="range" id="c" min="0" max="3" step="0.1" value="0.5"></label>
+
+<label><input type="checkbox" id="showLine"> Show line</label>
+
+<br>
+
+<label>Run
+  <label class="switch">
+    <input type="checkbox" id="runToggle">
+    <span class="slider"></span>
+  </label>
+</label>
+
+<button onclick="resetSim()">Reset</button>
+</div>
+
+<!-- ================= GEOMETRY ================= -->
+<div id="geom">
+<b>Geometry</b>
+
+<label>Turns <input type="range" id="turns" min="2" max="25" value="8"></label>
+<label>a <input type="number" id="a" value="50"></label>
+<label>b <input type="number" id="b" value="20"></label>
+<label>R <input type="number" id="R" value="100"></label>
+
+<label>Bz (field strength) <input type="range" id="Bz" min="0" max="5" step="0.1" value="1"></label>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/three@0.152.2/build/three.min.js"></script>
+
+<script>
+
+const scene = new THREE.Scene();
+const camera = new THREE.PerspectiveCamera(60, window.innerWidth/window.innerHeight, 0.1, 5000);
+const renderer = new THREE.WebGLRenderer();
+renderer.setSize(window.innerWidth, window.innerHeight);
+renderer.setClearColor(0x000000);
+document.body.appendChild(renderer.domElement);
+
+/* ===== CAMERA CONTROLS ===== */
+let azim=0, elev=0.5, radius=400;
+let dragging=false, px=0, py=0;
+
+renderer.domElement.onmousedown=e=>{dragging=true;px=e.clientX;py=e.clientY;}
+renderer.domElement.onmouseup=()=>dragging=false;
+renderer.domElement.onmousemove=e=>{
+ if(!dragging) return;
+ azim += (e.clientX-px)*0.005;
+ elev += (e.clientY-py)*0.005;
+ elev=Math.max(-1.5,Math.min(1.5,elev));
+ px=e.clientX; py=e.clientY;
+};
+
+renderer.domElement.onwheel=e=>{
+ radius+=e.deltaY*0.3;
+ radius=Math.max(50,Math.min(2000,radius));
+};
+
+function updateCamera(){
+ camera.position.set(
+  radius*Math.cos(elev)*Math.sin(azim),
+  radius*Math.sin(elev),
+  radius*Math.cos(elev)*Math.cos(azim)
+ );
+ camera.lookAt(0,0,0);
+}
+
+/* ===== GEOMETRY ===== */
+function generate(){
+ let pts=[];
+ let steps=800;
+
+ let turnsVal=+turns.value;
+ let aVal=+a.value;
+ let bVal=+b.value;
+ let RVal=+R.value;
+
+ for(let i=0;i<steps;i++){
+  let p=i/steps;
+  let th=turnsVal*2*Math.PI*p;
+
+  let z=(p<0.25)?4*p*bVal:
+        (p<0.5)?bVal-(4*p*bVal-bVal):
+        (p<0.75)?-(4*p*bVal)+2*bVal:
+        -4*bVal+4*p*bVal;
+
+  let core=Math.sqrt(Math.max(0,aVal*aVal*(1-(z*z)/(bVal*bVal))));
+  let r=(p<0.25||p>=0.75)?(RVal-core):(RVal+core);
+
+  pts.push(new THREE.Vector3(r*Math.cos(th),r*Math.sin(th),z));
+ }
+ return pts;
+}
+
+/* ===== STATE ===== */
+let base=generate();
+let pos=base.map(p=>p.clone());
+let vel=base.map(()=>new THREE.Vector3());
+
+let geo=new THREE.BufferGeometry().setFromPoints(pos);
+let mat=new THREE.PointsMaterial({vertexColors:true,size:3});
+let obj=new THREE.Points(geo,mat);
+scene.add(obj);
+
+let lineObj=null;
+let t=0;
+
+/* ===== RESET ===== */
+function resetSim(){
+ base=generate();
+ pos=base.map(p=>p.clone());
+ vel=base.map(()=>new THREE.Vector3());
+ t=0;
+}
+
+/* ===== PHYSICS ===== */
+function step(){
+ let dt=0.03;
+
+ let kVal=+k.value;
+ let IampVal=+Iamp.value;
+ let BzVal=+Bz.value;
+
+ for(let i=0;i<pos.length;i++){
+  let p=i/pos.length;
+  let I=IampVal*Math.sin(2*t-kVal*p);
+
+  let tan=new THREE.Vector3(-base[i].y, base[i].x, 0);
+
+  let F=new THREE.Vector3(
+    I*tan.y*BzVal,
+   -I*tan.x*BzVal,
+    0
+  ).multiplyScalar(0.002);
+
+  vel[i].add(F.multiplyScalar(dt));
+  pos[i].add(vel[i].clone().multiplyScalar(dt));
+ }
+}
+
+/* ===== ANIMATE ===== */
+function animate(){
+ requestAnimationFrame(animate);
+
+ if(runToggle.checked){
+  t+=0.05;
+  step();
+ }
+
+ /* COLOR FIELD */
+ let colors=[];
+ for(let i=0;i<pos.length;i++){
+  let p=i/pos.length;
+  let val=Math.sin(2*t-+k.value*p);
+  colors.push(0.5+0.5*val,0.2,1-0.5*val);
+ }
+
+ geo.setFromPoints(pos);
+ geo.setAttribute('color',new THREE.Float32BufferAttribute(colors,3));
+
+ /* LINE TOGGLE */
+ if(showLine.checked){
+  if(!lineObj){
+   let lg=new THREE.BufferGeometry().setFromPoints(pos);
+   lineObj=new THREE.Line(lg,new THREE.LineBasicMaterial({color:0xffffff}));
+   scene.add(lineObj);
+  } else {
+   lineObj.geometry.setFromPoints(pos);
+  }
+ } else {
+  if(lineObj){
+   scene.remove(lineObj);
+   lineObj=null;
+  }
+ }
+
+ updateCamera();
+ renderer.render(scene,camera);
+}
+
+animate();
+
+</script>
+</body>
+</html>
